@@ -2,13 +2,18 @@ package com.kasumi.dto.req;
 
 import lombok.Data;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * 编辑请求
+ * @Author kasumi
+ * @Description: 文件上传请求
  */
 @Data
-public class ChartEditRequest implements Serializable {
+public class GenChartByAiRequest implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * 图表名称
@@ -16,24 +21,12 @@ public class ChartEditRequest implements Serializable {
     private String name;
 
     /**
-     * id
-     */
-    private Long id;
-
-    /**
-     * 分析目标
+     * 目标
      */
     private String goal;
-
-    /**
-     * 图表数据
-     */
-    private String chartData;
 
     /**
      * 图表类型
      */
     private String chartType;
-
-    private static final long serialVersionUID = 1L;
 }

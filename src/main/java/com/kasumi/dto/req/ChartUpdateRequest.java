@@ -15,6 +15,11 @@ import java.util.Date;
 public class ChartUpdateRequest implements Serializable {
 
     /**
+     * 图表名称
+     */
+    private String name;
+
+    /**
      * id
      */
     @TableId(type = IdType.ASSIGN_ID)
