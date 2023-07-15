@@ -1,5 +1,6 @@
 package com.kasumi.controller;
 
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
@@ -16,6 +17,8 @@ import com.kasumi.core.utils.SqlUtils;
 import com.kasumi.dao.entity.Chart;
 import com.kasumi.dao.entity.User;
 import com.kasumi.dto.req.*;
+import com.kasumi.dto.resp.BiResponse;
+import com.kasumi.manager.AiManager;
 import com.kasumi.service.ChartService;
 import com.kasumi.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +32,8 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @Author kasumi
@@ -44,6 +49,9 @@ public class ChartController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AiManager aiManager;
 
     private final static Gson GSON = new Gson();
 
@@ -145,7 +153,7 @@ public class ChartController {
      */
     @PostMapping("/list/page")
     public RestResp<Page<Chart>> listChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
-            HttpServletRequest request) {
+                                                 HttpServletRequest request) {
         long current = chartQueryRequest.getCurrent();
         long size = chartQueryRequest.getPageSize();
         // 限制爬虫
@@ -164,7 +172,7 @@ public class ChartController {
      */
     @PostMapping("/my/list/page")
     public RestResp<Page<Chart>> listMyChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
-            HttpServletRequest request) {
+                                                   HttpServletRequest request) {
         if (chartQueryRequest == null) {
             throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
         }
@@ -180,7 +188,6 @@ public class ChartController {
     }
 
     // endregion
-
 
 
     /**
@@ -250,8 +257,8 @@ public class ChartController {
      * @return
      */
     @PostMapping("/gen")
-    public RestResp<String> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
-                                           GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+    public RestResp<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
+                                         GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
 
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
@@ -260,37 +267,63 @@ public class ChartController {
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
         ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
 
-        //  用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("你是一个数据分析师，接下来我会给你我的分析目标和原始数据，请告诉我分析结论").append("\n");
-        userInput.append("分析目标：").append(goal).append("\n");
+        //  校验文件
+        long size = multipartFile.getSize();
+        String originalFilename = multipartFile.getOriginalFilename();
+        //  校验文件大小
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        // 校验文件后缀 aaa.png
+        String suffix = FileUtil.getSuffix(originalFilename);
+        final List<String> validFileSuffixList = Arrays.asList("xlsx");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
 
+        User loginUser = userService.getLoginUser(request);
+
+        long biModelId = 1659171950288818178L;
+
+        //  构造用户输入
+        StringBuilder userInput = new StringBuilder();
+        userInput.append("分析需求：").append("\n");
+
+        // 拼接分析目标
+        String userGoal = goal;
+        if (StringUtils.isNotBlank(chartType)) {
+            userGoal += "，请使用" + chartType;
+        }
+        userInput.append(userGoal).append("\n");
+        userInput.append("原始数据：").append("\n");
         //  压缩后的数据
-        String result = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append("数据：").append(result);
-        return RestResp.success(userInput.toString());
-//        //  读取用户上传的excel文件，进行处理
-//
-//        User loginUser = userService.getLoginUser(request);
-//        // 文件目录：根据业务、用户来划分
-//        String uuid = RandomStringUtils.randomAlphanumeric(8);
-//        String filename = uuid + "-" + multipartFile.getOriginalFilename();
-//        File file = null;
-//        try {
-//            // 返回可访问地址
-//            return RestResp.success("");
-//        } catch (Exception e) {
-////            log.error("file upload error, filepath = " + filepath, e);
-//            throw new BusinessException(ErrorCodeEnum.SYSTEM_ERROR);
-//        } finally {
-//            if (file != null) {
-//                // 删除临时文件
-//                boolean delete = file.delete();
-//                if (!delete) {
-////                    log.error("file delete error, filepath = {}", filepath);
-//                }
-//            }
-//        }
+        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        userInput.append(csvData).append("\n");
+
+        String result = aiManager.doChat(biModelId, userInput.toString());
+        String[] splits = result.split("【【【【【");
+        if (request == null){
+            throw new BusinessException(ErrorCodeEnum.SYSTEM_ERROR);
+        }
+
+        String genChart = splits[1].trim();
+        String genResult = splits[2].trim();
+
+        // 插入到数据库
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setUserId(loginUser.getId());
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCodeEnum.SYSTEM_ERROR);
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+        biResponse.setChartId(chart.getId());
+        return RestResp.success(biResponse);
+
     }
 
 }
