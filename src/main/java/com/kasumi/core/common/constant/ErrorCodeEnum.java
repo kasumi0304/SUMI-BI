@@ -111,7 +111,10 @@ public enum ErrorCodeEnum {
     /**
      * 一级宏观错误码，中间件服务出错
      */
-    MIDDLEWARE_SERVICE_ERROR(60100, "中间件服务出错");
+    MIDDLEWARE_SERVICE_ERROR(60100, "中间件服务出错"),
+
+
+    TOO_MANY_REQUEST(42900, "过多请求");
 
     /**
      * 状态码

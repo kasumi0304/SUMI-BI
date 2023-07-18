@@ -19,4 +19,10 @@ public class BusinessException extends RuntimeException{
         super(errorCodeEnum.getMessage(), null, false, false);
         this.errorCodeEnum = errorCodeEnum;
     }
+
+    public BusinessException(ErrorCodeEnum errorCodeEnum, String message) {
+        // 构造器之间的调用必须在第一行
+        super(message, null, false, false);
+        this.errorCodeEnum = errorCodeEnum;
+    }
 }
