@@ -12,6 +12,7 @@ import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,7 @@ import java.io.IOException;
 public class BiMessageConsumer {
     @Resource
     private ChartService chartService;
+
 
     @Resource
     private AiManager aiManager;
@@ -70,7 +72,6 @@ public class BiMessageConsumer {
         updateChartResult.setId(chart.getId());
         updateChartResult.setGenChart(genChart);
         updateChartResult.setGenResult(genResult);
-        // todo 建议定义状态为枚举值
         updateChartResult.setStatus(ChartConstant.SUCCEED);
         boolean updateResult = chartService.updateById(updateChartResult);
         if (!updateResult) {
@@ -83,6 +84,7 @@ public class BiMessageConsumer {
 
     /**
      * 构建用户输入
+     *
      * @param chart
      * @return
      */
@@ -109,7 +111,7 @@ public class BiMessageConsumer {
     private void handleChartUpdateError(long chartId, String execMessage) {
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chartId);
-        updateChartResult.setStatus("failed");
+        updateChartResult.setStatus(ChartConstant.FAILED);
         updateChartResult.setExecMessage("execMessage");
         boolean updateResult = chartService.updateById(updateChartResult);
         if (!updateResult) {
