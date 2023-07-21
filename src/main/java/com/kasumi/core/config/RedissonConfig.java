@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * @Author kasumi
- * @Description: TODO
+ * @Description: Redisson配置
  */
 @Configuration
 @ConfigurationProperties(prefix = "spring.redis")
@@ -32,7 +32,6 @@ public class RedissonConfig {
                 .setDatabase(database)
                 .setAddress("redis://" + host + ":" + port)
                 .setPassword(password);
-        RedissonClient redisson = Redisson.create(config);
-        return redisson;
+        return Redisson.create(config);
     }
 }

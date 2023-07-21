@@ -2,6 +2,9 @@ package com.kasumi.core.mq;
 
 import com.kasumi.core.common.constant.ErrorCodeEnum;
 import com.kasumi.core.common.exception.BusinessException;
+import com.kasumi.core.constant.AiConstant;
+import com.kasumi.core.constant.BiMqConstant;
+import com.kasumi.core.constant.ChartConstant;
 import com.kasumi.dao.entity.Chart;
 import com.kasumi.manager.AiManager;
 import com.kasumi.service.ChartService;
@@ -18,7 +21,7 @@ import java.io.IOException;
 
 /**
  * @Author kasumi
- * @Description: TODO
+ * @Description: 图表生成消费者
  */
 @Component
 @Slf4j
@@ -46,7 +49,7 @@ public class BiMessageConsumer {
         // 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
         Chart updateChart = new Chart();
         updateChart.setId(chart.getId());
-        updateChart.setStatus("running");
+        updateChart.setStatus(ChartConstant.RUNNING);
         boolean b = chartService.updateById(updateChart);
         if (!b) {
             channel.basicNack(deliveryTag, false, false);
@@ -54,7 +57,7 @@ public class BiMessageConsumer {
             return;
         }
         // 调用 AI
-        String result = aiManager.doChat(1659171950288818178L, buildUserInput(chart));
+        String result = aiManager.doChat(AiConstant.BI_MODEL_ID, buildUserInput(chart));
         String[] splits = result.split("【【【【【");
         if (splits.length < 3) {
             channel.basicNack(deliveryTag, false, false);
@@ -68,7 +71,7 @@ public class BiMessageConsumer {
         updateChartResult.setGenChart(genChart);
         updateChartResult.setGenResult(genResult);
         // todo 建议定义状态为枚举值
-        updateChartResult.setStatus("succeed");
+        updateChartResult.setStatus(ChartConstant.SUCCEED);
         boolean updateResult = chartService.updateById(updateChartResult);
         if (!updateResult) {
             channel.basicNack(deliveryTag, false, false);

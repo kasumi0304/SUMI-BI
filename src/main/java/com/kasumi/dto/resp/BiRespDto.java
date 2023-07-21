@@ -7,7 +7,7 @@ import lombok.Data;
  * @author zhang
  */
 @Data
-public class BiResponse {
+public class BiRespDto {
 
     private String genChart;
 

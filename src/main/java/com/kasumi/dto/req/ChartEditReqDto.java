@@ -1,18 +1,14 @@
 package com.kasumi.dto.req;
 
-import com.kasumi.core.common.req.PageRequest;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import java.io.Serializable;
 
 /**
- * 查询请求
- * @author zhang
+ * 编辑请求
  */
-@EqualsAndHashCode(callSuper = true)
 @Data
-public class ChartQueryRequest extends PageRequest implements Serializable {
+public class ChartEditReqDto implements Serializable {
 
     /**
      * 图表名称
@@ -30,15 +26,14 @@ public class ChartQueryRequest extends PageRequest implements Serializable {
     private String goal;
 
     /**
+     * 图表数据
+     */
+    private String chartData;
+
+    /**
      * 图表类型
      */
     private String chartType;
-
-    /**
-     * 用户 id
-     */
-    private Long userId;
-
 
     private static final long serialVersionUID = 1L;
 }

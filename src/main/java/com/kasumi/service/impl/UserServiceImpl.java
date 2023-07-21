@@ -1,20 +1,14 @@
 package com.kasumi.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.kasumi.core.common.constant.ErrorCodeEnum;
 import com.kasumi.core.common.exception.BusinessException;
 import com.kasumi.core.common.resp.RestResp;
-import com.kasumi.core.constant.CommonConstant;
-import com.kasumi.core.constant.UserRoleEnum;
-import com.kasumi.core.utils.SqlUtils;
 import com.kasumi.dao.entity.User;
 import com.kasumi.dto.req.UserLoginReqDto;
-import com.kasumi.dto.req.UserQueryRequest;
 import com.kasumi.dto.req.UserRegisterReqDto;
 import com.kasumi.dto.resp.UserLoginRespDto;
-import com.kasumi.dto.vo.UserVO;
 import com.kasumi.service.UserService;
 import com.kasumi.dao.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -24,10 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import javax.servlet.http.HttpServletRequest;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.kasumi.core.constant.UserConstant.USER_LOGIN_STATE;
 
@@ -151,39 +141,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return currentUser;
     }
 
-    /**
-     * 是否为管理员
-     *
-     * @param request
-     * @return
-     */
-    @Override
-    public boolean isAdmin(HttpServletRequest request) {
-        // 仅管理员可查询
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User user = (User) userObj;
-        return isAdmin(user);
-    }
 
-    @Override
-    public boolean isAdmin(User user) {
-        return user != null && UserRoleEnum.ADMIN.getValue().equals(user.getUserRole());
-    }
 
-    /**
-     * 用户注销
-     *
-     * @param request
-     */
-    @Override
-    public boolean userLogout(HttpServletRequest request) {
-        if (request.getSession().getAttribute(USER_LOGIN_STATE) == null) {
-            throw new BusinessException(ErrorCodeEnum.SYSTEM_ERROR);
-        }
-        // 移除登录态
-        request.getSession().removeAttribute(USER_LOGIN_STATE);
-        return true;
-    }
 
     @Override
     public UserLoginRespDto getLoginUserVO(User user) {
@@ -195,48 +154,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return loginUserVO;
     }
 
-    @Override
-    public UserVO getUserVO(User user) {
-        if (user == null) {
-            return null;
-        }
-        UserVO userVO = new UserVO();
-        BeanUtils.copyProperties(user, userVO);
-        return userVO;
-    }
 
-    @Override
-    public List<UserVO> getUserVO(List<User> userList) {
-        if (CollectionUtils.isEmpty(userList)) {
-            return new ArrayList<>();
-        }
-        return userList.stream().map(this::getUserVO).collect(Collectors.toList());
-    }
-
-    @Override
-    public QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest) {
-        if (userQueryRequest == null) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        Long id = userQueryRequest.getId();
-        String unionId = userQueryRequest.getUnionId();
-        String mpOpenId = userQueryRequest.getMpOpenId();
-        String userName = userQueryRequest.getUserName();
-        String userProfile = userQueryRequest.getUserProfile();
-        String userRole = userQueryRequest.getUserRole();
-        String sortField = userQueryRequest.getSortField();
-        String sortOrder = userQueryRequest.getSortOrder();
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq(id != null, "id", id);
-        queryWrapper.eq(StringUtils.isNotBlank(unionId), "unionId", unionId);
-        queryWrapper.eq(StringUtils.isNotBlank(mpOpenId), "mpOpenId", mpOpenId);
-        queryWrapper.eq(StringUtils.isNotBlank(userRole), "userRole", userRole);
-        queryWrapper.like(StringUtils.isNotBlank(userProfile), "userProfile", userProfile);
-        queryWrapper.like(StringUtils.isNotBlank(userName), "userName", userName);
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
-                sortField);
-        return queryWrapper;
-    }
 }
 
 

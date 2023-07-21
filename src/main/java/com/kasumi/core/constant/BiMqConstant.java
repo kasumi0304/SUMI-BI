@@ -1,5 +1,8 @@
-package com.kasumi.core.mq;
+package com.kasumi.core.constant;
 
+/**
+ * 消息队列相关常量
+ */
 public interface BiMqConstant {
 
     String BI_EXCHANGE_NAME = "bi_exchange";

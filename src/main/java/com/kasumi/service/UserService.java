@@ -5,13 +5,12 @@ import com.kasumi.core.common.resp.RestResp;
 import com.kasumi.dao.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.kasumi.dto.req.UserLoginReqDto;
-import com.kasumi.dto.req.UserQueryRequest;
+import com.kasumi.dto.req.UserQueryReqDto;
 import com.kasumi.dto.req.UserRegisterReqDto;
 import com.kasumi.dto.resp.UserLoginRespDto;
-import com.kasumi.dto.vo.UserVO;
+import com.kasumi.dto.resp.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
-import java.net.http.HttpRequest;
 import java.util.List;
 
 /**
@@ -35,61 +34,25 @@ public interface UserService extends IService<User> {
      */
     RestResp<UserLoginRespDto> userLogin(UserLoginReqDto userLoginReqDto, HttpServletRequest request);
 
-    RestResp<UserLoginRespDto> getLoginRespDto(User user);
-
-    User getLoginUser(HttpServletRequest request);
-
     /**
-     * 是否为管理员
-     * @param request
-     * @return
-     */
-    boolean isAdmin(HttpServletRequest request);
-
-    /**
-     * 是否为管理员
-     *
+     * 用户信息脱敏
      * @param user
      * @return
      */
-    boolean isAdmin(User user);
+    RestResp<UserLoginRespDto> getLoginRespDto(User user);
 
     /**
-     * 用户注销
-     *
+     * 获取已登录用户
      * @param request
      * @return
      */
-    boolean userLogout(HttpServletRequest request);
+    User getLoginUser(HttpServletRequest request);
+
 
     /**
-     * 获取脱敏的已登录用户信息
-     *
+     * 获取用户信息
+     * @param user
      * @return
      */
     UserLoginRespDto getLoginUserVO(User user);
-
-    /**
-     * 获取脱敏的用户信息
-     *
-     * @param user
-     * @return
-     */
-    UserVO getUserVO(User user);
-
-    /**
-     * 获取脱敏的用户信息
-     *
-     * @param userList
-     * @return
-     */
-    List<UserVO> getUserVO(List<User> userList);
-
-    /**
-     * 获取查询条件
-     *
-     * @param userQueryRequest
-     * @return
-     */
-    QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
 }

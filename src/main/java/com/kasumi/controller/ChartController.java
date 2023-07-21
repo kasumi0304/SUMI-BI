@@ -1,40 +1,17 @@
 package com.kasumi.controller;
 
-import cn.hutool.core.io.FileUtil;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.google.gson.Gson;
-import com.kasumi.core.auth.AuthCheck;
-import com.kasumi.core.common.constant.ErrorCodeEnum;
-import com.kasumi.core.common.exception.BusinessException;
-import com.kasumi.core.common.exception.ThrowUtils;
 import com.kasumi.core.common.resp.RestResp;
-import com.kasumi.core.constant.CommonConstant;
-import com.kasumi.core.constant.UserConstant;
-import com.kasumi.core.mq.BiMessageProducer;
-import com.kasumi.core.utils.ExcelUtils;
-import com.kasumi.core.utils.SqlUtils;
 import com.kasumi.dao.entity.Chart;
-import com.kasumi.dao.entity.User;
 import com.kasumi.dto.req.*;
-import com.kasumi.dto.resp.BiResponse;
-import com.kasumi.manager.AiManager;
-import com.kasumi.manager.RedisLimiterManager;
+import com.kasumi.dto.resp.BiRespDto;
 import com.kasumi.service.ChartService;
-import com.kasumi.service.UserService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * @Author kasumi
@@ -48,474 +25,90 @@ public class ChartController {
     @Resource
     private ChartService chartService;
 
-    @Resource
-    private UserService userService;
-
-    @Resource
-    private AiManager aiManager;
-
-    @Resource
-    private RedisLimiterManager redisLimiterManager;
-
-    @Resource
-    private ThreadPoolExecutor threadPoolExecutor;
-
-    @Resource
-    private BiMessageProducer biMessageProducer;
-
-    private final static Gson GSON = new Gson();
-
-    // region 增删改查
-
     /**
-     * 创建
+     * 图表信息删除接口
      *
-     * @param chartAddRequest
-     * @param request
-     * @return
-     */
-    @PostMapping("/add")
-    public RestResp<Long> addChart(@RequestBody ChartAddRequest chartAddRequest, HttpServletRequest request) {
-        if (chartAddRequest == null) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        Chart chart = new Chart();
-        BeanUtils.copyProperties(chartAddRequest, chart);
-        User loginUser = userService.getLoginUser(request);
-        chart.setUserId(loginUser.getId());
-        boolean result = chartService.save(chart);
-        ThrowUtils.throwIf(!result, ErrorCodeEnum.SYSTEM_ERROR);
-        //long newChartId = chart.getId();
-        return RestResp.success(chart.getId());
-    }
-
-    /**
-     * 删除
-     *
-     * @param deleteRequest
-     * @param request
+     * @param deleteReqDto
      * @return
      */
     @PostMapping("/delete")
-    public RestResp<Boolean> deleteChart(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
-        if (deleteRequest == null || deleteRequest.getId() <= 0) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        User user = userService.getLoginUser(request);
-        long id = deleteRequest.getId();
-        // 判断是否存在
-        Chart oldChart = chartService.getById(id);
-        ThrowUtils.throwIf(oldChart == null, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        // 仅本人或管理员可删除
-        if (!oldChart.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
-            throw new BusinessException(ErrorCodeEnum.USER_UN_AUTH);
-        }
-        boolean b = chartService.removeById(id);
-        return RestResp.success(b);
+    public RestResp<Boolean> deleteChart(@RequestBody DeleteReqDto deleteReqDto) {
+        return chartService.deleteChart(deleteReqDto);
     }
 
-    /**
-     * 更新（仅管理员）
-     *
-     * @param chartUpdateRequest
-     * @return
-     */
-    @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public RestResp<Boolean> updateChart(@RequestBody ChartUpdateRequest chartUpdateRequest) {
-        if (chartUpdateRequest == null || chartUpdateRequest.getId() <= 0) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        Chart chart = new Chart();
-        BeanUtils.copyProperties(chartUpdateRequest, chart);
-        long id = chartUpdateRequest.getId();
-        // 判断是否存在
-        Chart oldChart = chartService.getById(id);
-        ThrowUtils.throwIf(oldChart == null, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        boolean result = chartService.updateById(chart);
-        return RestResp.success(result);
-    }
 
     /**
-     * 根据 id 获取
+     * 分页获取当前用户创建的图表信息列表接口
      *
-     * @param id
-     * @return
-     */
-    @GetMapping("/get")
-    public RestResp<Chart> getChartVOById(long id, HttpServletRequest request) {
-        if (id <= 0) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        Chart chart = chartService.getById(id);
-        if (chart == null) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        return RestResp.success(chart);
-    }
-
-    /**
-     * 分页获取列表（封装类）
-     *
-     * @param chartQueryRequest
-     * @param request
-     * @return
-     */
-    @PostMapping("/list/page")
-    public RestResp<Page<Chart>> listChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
-                                                 HttpServletRequest request) {
-        long current = chartQueryRequest.getCurrent();
-        long size = chartQueryRequest.getPageSize();
-        // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        Page<Chart> chartPage = chartService.page(new Page<>(current, size),
-                getQueryWrapper(chartQueryRequest));
-        return RestResp.success(chartPage);
-    }
-
-    /**
-     * 分页获取当前用户创建的资源列表
-     *
-     * @param chartQueryRequest
+     * @param chartQueryReqDto
      * @param request
      * @return
      */
     @PostMapping("/my/list/page")
-    public RestResp<Page<Chart>> listMyChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
+    public RestResp<Page<Chart>> listMyChartByPage(@RequestBody ChartQueryReqDto chartQueryReqDto,
                                                    HttpServletRequest request) {
-        if (chartQueryRequest == null) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        User loginUser = userService.getLoginUser(request);
-        chartQueryRequest.setUserId(loginUser.getId());
-        long current = chartQueryRequest.getCurrent();
-        long size = chartQueryRequest.getPageSize();
-        // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        Page<Chart> chartPage = chartService.page(new Page<>(current, size),
-                getQueryWrapper(chartQueryRequest));
-        return RestResp.success(chartPage);
+        return chartService.listMyChartByPage(chartQueryReqDto, request);
     }
-
-    // endregion
 
 
     /**
-     * 编辑（用户）
+     * 编辑图表信息接口
      *
-     * @param chartEditRequest
-     * @param request
+     * @param chartEditReqDto
      * @return
      */
     @PostMapping("/edit")
-    public RestResp<Boolean> editChart(@RequestBody ChartEditRequest chartEditRequest, HttpServletRequest request) {
-        if (chartEditRequest == null || chartEditRequest.getId() <= 0) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        Chart chart = new Chart();
-        BeanUtils.copyProperties(chartEditRequest, chart);
-        User loginUser = userService.getLoginUser(request);
-        long id = chartEditRequest.getId();
-        // 判断是否存在
-        Chart oldChart = chartService.getById(id);
-        ThrowUtils.throwIf(oldChart == null, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        // 仅本人或管理员可编辑
-        if (!oldChart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
-            throw new BusinessException(ErrorCodeEnum.USER_UN_AUTH);
-        }
-        boolean result = chartService.updateById(chart);
-        return RestResp.success(result);
-    }
-
-    /**
-     * 获取查询包装类
-     *
-     * @param chartQueryRequest
-     * @return
-     */
-    private QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest) {
-        QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
-        if (chartQueryRequest == null) {
-            return queryWrapper;
-        }
-        Long id = chartQueryRequest.getId();
-        String name = chartQueryRequest.getName();
-        String goal = chartQueryRequest.getGoal();
-        String chartType = chartQueryRequest.getChartType();
-        Long userId = chartQueryRequest.getUserId();
-        String sortField = chartQueryRequest.getSortField();
-        String sortOrder = chartQueryRequest.getSortOrder();
-
-        queryWrapper.eq(id != null && id > 0, "id", id);
-        queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
-        queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
-        queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
-        queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
-        queryWrapper.eq("isDelete", false);
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
-                sortField);
-        return queryWrapper;
+    public RestResp<Boolean> editChart(@RequestBody ChartEditReqDto chartEditReqDto) {
+        return chartService.editChart(chartEditReqDto);
     }
 
 
     /**
-     * 智能分析
+     * 智能分析接口
      *
      * @param multipartFile
-     * @param genChartByAiRequest
+     * @param genChartByAiReqDto
      * @param request
      * @return
      */
     @PostMapping("/gen")
-    public RestResp<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
-                                             GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+    public RestResp<BiRespDto> genChart(@RequestPart("file") MultipartFile multipartFile,
+                                        GenChartByAiReqDto genChartByAiReqDto, HttpServletRequest request) {
 
-        String name = genChartByAiRequest.getName();
-        String goal = genChartByAiRequest.getGoal();
-        String chartType = genChartByAiRequest.getChartType();
-        // 校验
-        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
 
-        //  校验文件
-        long size = multipartFile.getSize();
-        String originalFilename = multipartFile.getOriginalFilename();
-        //  校验文件大小
-        final long ONE_MB = 1024 * 1024L;
-        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        // 校验文件后缀 aaa.png
-        String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("xlsx");
-        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件后缀非法");
-
-        User loginUser = userService.getLoginUser(request);
-
-        // 每个用户一个限流器
-        redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
-
-        long biModelId = 1659171950288818178L;
-
-        //  构造用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求：").append("\n");
-
-        // 拼接分析目标
-        String userGoal = goal;
-        if (StringUtils.isNotBlank(chartType)) {
-            userGoal += "，请使用" + chartType;
-        }
-        userInput.append(userGoal).append("\n");
-        userInput.append("原始数据：").append("\n");
-        //  压缩后的数据
-        String csvData = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append(csvData).append("\n");
-
-        String result = aiManager.doChat(biModelId, userInput.toString());
-        String[] splits = result.split("【【【【【");
-        if (request == null) {
-            throw new BusinessException(ErrorCodeEnum.SYSTEM_ERROR);
-        }
-
-        String genChart = splits[1].trim();
-        String genResult = splits[2].trim();
-
-        // 插入到数据库
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setGenChart(genChart);
-        chart.setGenResult(genResult);
-        chart.setUserId(loginUser.getId());
-        boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult, ErrorCodeEnum.SYSTEM_ERROR);
-
-        BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(genChart);
-        biResponse.setGenResult(genResult);
-        biResponse.setChartId(chart.getId());
-        return RestResp.success(biResponse);
+        return chartService.genChartByAi(multipartFile, genChartByAiReqDto, request);
 
     }
 
 
     /**
-     * 智能分析（异步）
+     * 智能分析接口（异步）
      *
      * @param multipartFile
-     * @param genChartByAiRequest
+     * @param genChartByAiReqDto
      * @param request
      * @return
      */
     @PostMapping("/gen/async")
-    public RestResp<BiResponse> genChartByAiASync(@RequestPart("file") MultipartFile multipartFile,
-                                                  GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
-
-        String name = genChartByAiRequest.getName();
-        String goal = genChartByAiRequest.getGoal();
-        String chartType = genChartByAiRequest.getChartType();
-        // 校验
-        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-
-        //  校验文件
-        long size = multipartFile.getSize();
-        String originalFilename = multipartFile.getOriginalFilename();
-        //  校验文件大小
-        final long ONE_MB = 1024 * 1024L;
-        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        // 校验文件后缀 aaa.png
-        String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("xlsx");
-        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件后缀非法");
-
-        User loginUser = userService.getLoginUser(request);
-
-        // 每个用户一个限流器
-        redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
-
-        long biModelId = 1659171950288818178L;
-
-        //  构造用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求：").append("\n");
-
-        // 拼接分析目标
-        String userGoal = goal;
-        if (StringUtils.isNotBlank(chartType)) {
-            userGoal += "，请使用" + chartType;
-        }
-        userInput.append(userGoal).append("\n");
-        userInput.append("原始数据：").append("\n");
-        //  压缩后的数据
-        String csvData = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append(csvData).append("\n");
-
-        // 插入到数据库
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setStatus("wait");
-        chart.setUserId(loginUser.getId());
-        boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult, ErrorCodeEnum.SYSTEM_ERROR, "图表保存失败");
-
-        // todo 处理任务队列满了后，抛异常的情况
-        CompletableFuture.runAsync(() -> {
-            // 先修改图表任务状态为 “执行中”，等任务成功后，修改为 ”已完成“,保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
-            Chart updateChart = new Chart();
-            updateChart.setId(chart.getId());
-            updateChart.setStatus("running");
-            boolean b = chartService.updateById(updateChart);
-            if (!b) {
-                handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
-                return;
-            }
-            String result = aiManager.doChat(biModelId, userInput.toString());
-            String[] splits = result.split("【【【【【");
-            if (splits.length < 3) {
-                handleChartUpdateError(chart.getId(), "AI 生成错误");
-                return;
-            }
-            String genChart = splits[1].trim();
-            String genResult = splits[2].trim();
-            Chart updateChartResult = new Chart();
-            updateChartResult.setId(chart.getId());
-            updateChartResult.setGenChart(genChart);
-            updateChartResult.setGenResult(genResult);
-            // todo 定义状态为枚举值
-            updateChartResult.setStatus("succeed");
-            boolean updateResult = chartService.updateById(updateChartResult);
-            if (!updateResult) {
-                handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
-            }
-
-        }, threadPoolExecutor);
-
-
-        BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(chart.getId());
-        return RestResp.success(biResponse);
+    public RestResp<BiRespDto> genChartByAiASync(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAiReqDto genChartByAiReqDto, HttpServletRequest request) {
+        return chartService.genChartByAiASync(multipartFile, genChartByAiReqDto, request);
 
     }
 
     /**
-     * 智能分析（异步消息队列）
+     * 智能分析接口（异步消息队列）
      *
      * @param multipartFile
-     * @param genChartByAiRequest
+     * @param genChartByAiReqDto
      * @param request
      * @return
      */
     @PostMapping("/gen/async/mq")
-    public RestResp<BiResponse> genChartByAiAsyncMq(@RequestPart("file") MultipartFile multipartFile,
-                                                        GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
-        String name = genChartByAiRequest.getName();
-        String goal = genChartByAiRequest.getGoal();
-        String chartType = genChartByAiRequest.getChartType();
-        // 校验
-        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "目标为空");
-        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "名称过长");
-        // 校验文件
-        long size = multipartFile.getSize();
-        String originalFilename = multipartFile.getOriginalFilename();
-        // 校验文件大小
-        final long ONE_MB = 1024 * 1024L;
-        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件超过 1M");
-        // 校验文件后缀 aaa.png
-        String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
-        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件后缀非法");
-
-        User loginUser = userService.getLoginUser(request);
-        // 限流判断，每个用户一个限流器
-        redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
-
-
-        // 构造用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求：").append("\n");
-
-        // 拼接分析目标
-        String userGoal = goal;
-        if (StringUtils.isNotBlank(chartType)) {
-            userGoal += "，请使用" + chartType;
-        }
-        userInput.append(userGoal).append("\n");
-        userInput.append("原始数据：").append("\n");
-        // 压缩后的数据
-        String csvData = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append(csvData).append("\n");
-
-        // 插入到数据库
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setStatus("wait");
-        chart.setUserId(loginUser.getId());
-        boolean saveResult = chartService.save(chart);
-        ThrowUtils.throwIf(!saveResult, ErrorCodeEnum.SYSTEM_ERROR, "图表保存失败");
-        long newChartId = chart.getId();
-        biMessageProducer.sendMessage(String.valueOf(newChartId));
-        BiResponse biResponse = new BiResponse();
-        biResponse.setChartId(newChartId);
-        return RestResp.success(biResponse);
+    public RestResp<BiRespDto> genChartByAiAsyncMq(@RequestPart("file") MultipartFile multipartFile,
+                                                   GenChartByAiReqDto genChartByAiReqDto, HttpServletRequest request) {
+        return chartService.genChartByAiAsyncMq(multipartFile, genChartByAiReqDto, request);
     }
 
-    private void handleChartUpdateError(long chartId, String execMessage) {
-        Chart updateChartResult = new Chart();
-        updateChartResult.setId(chartId);
-        updateChartResult.setStatus("failed");
-        updateChartResult.setExecMessage("execMessage");
-        boolean updateResult = chartService.updateById(updateChartResult);
-        if (!updateResult) {
-            log.error("更新图表失败状态失败" + chartId + "," + execMessage);
-        }
-    }
 
 }

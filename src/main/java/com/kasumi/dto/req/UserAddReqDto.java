@@ -8,7 +8,7 @@ import java.io.Serializable;
  * 用户创建请求
  */
 @Data
-public class UserAddRequest implements Serializable {
+public class UserAddReqDto implements Serializable {
 
     /**
      * 用户昵称

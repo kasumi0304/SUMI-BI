@@ -1,4 +1,4 @@
-package com.kasumi.dto.vo;
+package com.kasumi.dto.resp;
 
 import lombok.Data;
 

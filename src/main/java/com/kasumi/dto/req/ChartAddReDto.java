@@ -1,32 +1,38 @@
 package com.kasumi.dto.req;
 
+
 import lombok.Data;
 
 import java.io.Serializable;
 
 /**
- * 用户更新个人信息请求
+ * 创建请求
  *
  * @author <a href="https://github.com/liyupi">程序员鱼皮</a>
  * @from <a href="https://yupi.icu">编程导航知识星球</a>
  */
 @Data
-public class UserUpdateMyRequest implements Serializable {
+public class ChartAddReDto implements Serializable {
 
     /**
-     * 用户昵称
+     * 图表名称
      */
-    private String userName;
+    private String name;
 
     /**
-     * 用户头像
+     * 分析目标
      */
-    private String userAvatar;
+    private String goal;
 
     /**
-     * 简介
+     * 图表数据
      */
-    private String userProfile;
+    private String chartData;
+
+    /**
+     * 图表类型
+     */
+    private String chartType;
 
     private static final long serialVersionUID = 1L;
 }

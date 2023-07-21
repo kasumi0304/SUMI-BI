@@ -11,7 +11,7 @@ import java.io.Serializable;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class UserQueryRequest extends PageRequest implements Serializable {
+public class UserQueryReqDto extends PageRequest implements Serializable {
     /**
      * id
      */

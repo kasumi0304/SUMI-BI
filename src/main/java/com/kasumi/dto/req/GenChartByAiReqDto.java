@@ -10,7 +10,7 @@ import java.io.Serializable;
  * @Description: 文件上传请求
  */
 @Data
-public class GenChartByAiRequest implements Serializable {
+public class GenChartByAiReqDto implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;

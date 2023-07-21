@@ -32,12 +32,6 @@ public class ExcelUtils {
      * @return
      */
     public static String excelToCsv(MultipartFile multipartFile) {
-//        File file = null;
-//        try {
-//            file = ResourceUtils.getFile("classpath:SiteData.xlsx");
-//        } catch (FileNotFoundException e) {
-//            throw new RuntimeException(e);
-//        }
         List<Map<Integer, String>> list = null;
         try {
             list = EasyExcel.read(multipartFile.getInputStream())

@@ -12,7 +12,7 @@ import java.util.Date;
  * 更新请求
  */
 @Data
-public class ChartUpdateRequest implements Serializable {
+public class ChartUpdateReqDto implements Serializable {
 
     /**
      * 图表名称
