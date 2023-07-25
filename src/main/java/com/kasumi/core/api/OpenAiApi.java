@@ -2,16 +2,6 @@ package com.kasumi.core.api;
 
 import cn.hutool.http.HttpRequest;
 import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
-import com.google.gson.Gson;
-
-import java.io.OutputStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.HashMap;
-
 public class OpenAiApi {
 
     public static void main(String[] args) {
