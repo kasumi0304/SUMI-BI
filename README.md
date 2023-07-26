@@ -25,5 +25,5 @@
 
 
 #### 项目展示
-![输入图片说明](src/main/resources/%E6%B5%81%E7%A8%8B%E5%9B%BE.png)
+![输入图片说明](src/main/resources/%E6%8D%95%E8%8E%B7.PNG)
 
