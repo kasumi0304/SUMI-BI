@@ -70,6 +70,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
             //  插入数据
             User user = new User();
+            //默认设置用户昵称为用户名
+            user.setUserName(userAccount);
+            //设置默认头像
+            user.setUserAvatar("https://kasumi-1314099652.cos.ap-guangzhou.myqcloud.com/IMG_2270.JPG");
             user.setUserAccount(userAccount);
             user.setUserPassword(encryptPassword);
             //  数据库保存失败

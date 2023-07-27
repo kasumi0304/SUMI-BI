@@ -1,8 +1,8 @@
 package com.kasumi.core.mq;
 
+import com.kasumi.core.api.OpenAiApi;
 import com.kasumi.core.common.constant.ErrorCodeEnum;
 import com.kasumi.core.common.exception.BusinessException;
-import com.kasumi.core.constant.AiConstant;
 import com.kasumi.core.constant.BiMqConstant;
 import com.kasumi.core.constant.ChartConstant;
 import com.kasumi.dao.entity.Chart;
@@ -29,9 +29,9 @@ public class BiMessageConsumer {
     @Resource
     private ChartService chartService;
 
-
     @Resource
-    private AiManager aiManager;
+    private OpenAiApi openAiApi;
+
 
     @RabbitListener(queues = {BiMqConstant.BI_QUEUE_NAME}, ackMode = "MANUAL")
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
@@ -58,7 +58,7 @@ public class BiMessageConsumer {
             return;
         }
         // 调用 AI
-        String result = aiManager.doChat(AiConstant.BI_MODEL_ID, buildUserInput(chart));
+        String result = openAiApi.doChat(buildUserInput(chart));
         String[] splits = result.split("【【【【【");
         if (splits.length < 3) {
             channel.basicNack(deliveryTag, false, false);

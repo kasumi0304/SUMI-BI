@@ -114,7 +114,9 @@ public enum ErrorCodeEnum {
     MIDDLEWARE_SERVICE_ERROR(60100, "中间件服务出错"),
 
 
-    TOO_MANY_REQUEST(42900, "过多请求");
+    TOO_MANY_REQUEST(42900, "过多请求"),
+
+    NOT_FOUND_ERROR(40400, "请求数据不存在");
 
     /**
      * 状态码

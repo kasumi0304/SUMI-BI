@@ -4,6 +4,7 @@ import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.kasumi.core.api.OpenAiApi;
 import com.kasumi.core.common.constant.ErrorCodeEnum;
 import com.kasumi.core.common.exception.BusinessException;
 import com.kasumi.core.common.exception.ThrowUtils;
@@ -54,6 +55,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private RedisLimiterManager redisLimiterManager;
+
+    @Resource
+    private OpenAiApi openAiApi;
 
     @Resource
     private AiManager aiManager;
@@ -108,7 +112,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
 
-        String result = aiManager.doChat(AiConstant.BI_MODEL_ID, userInput.toString());
+        String result = openAiApi.doChat(userInput.toString());
         String[] splits = result.split("【【【【【");
         if (request == null) {
             throw new BusinessException(ErrorCodeEnum.SYSTEM_ERROR);

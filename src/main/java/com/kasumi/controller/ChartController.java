@@ -1,9 +1,14 @@
 package com.kasumi.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.kasumi.core.common.constant.ErrorCodeEnum;
+import com.kasumi.core.common.exception.BusinessException;
 import com.kasumi.core.common.resp.RestResp;
 import com.kasumi.dao.entity.Chart;
-import com.kasumi.dto.req.*;
+import com.kasumi.dto.req.ChartEditReqDto;
+import com.kasumi.dto.req.ChartQueryReqDto;
+import com.kasumi.dto.req.DeleteReqDto;
+import com.kasumi.dto.req.GenChartByAiReqDto;
 import com.kasumi.dto.resp.BiRespDto;
 import com.kasumi.service.ChartService;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +41,23 @@ public class ChartController {
         return chartService.deleteChart(deleteReqDto);
     }
 
+    /**
+     * 根据 id 获取
+     *
+     * @param id
+     * @return
+     */
+    @GetMapping("/get")
+    public RestResp<Chart> getChartById(long id) {
+        if (id <= 0) {
+            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        }
+        Chart chart = chartService.getById(id);
+        if (chart == null) {
+            throw new BusinessException(ErrorCodeEnum.NOT_FOUND_ERROR);
+        }
+        return RestResp.success(chart);
+    }
 
     /**
      * 分页获取当前用户创建的图表信息列表接口
