@@ -20,14 +20,10 @@ public class ThreadPoolExecutorConfig {
 
     @Bean
     public ThreadPoolExecutor threadPoolExecutor() {
-        ThreadFactory threadFactory = new ThreadFactory() {
-
-            @Override
-            public Thread newThread(@NotNull Runnable r) {
-                Thread thread = new Thread(r);
-                log.info("线程:" + thread.getId());
-                return thread;
-            }
+        ThreadFactory threadFactory = r -> {
+            Thread thread = new Thread(r);
+            log.info("线程:" + thread.getId());
+            return thread;
         };
 
         return new ThreadPoolExecutor(2, 4, 1000, TimeUnit.SECONDS,

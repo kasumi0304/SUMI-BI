@@ -40,12 +40,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 
-
-/**
- * @author zhang
- * @description 针对表【chart(图表信息表)】的数据库操作Service实现
- * @createDate 2023-07-13 15:55:16
- */
 @Service
 public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         implements ChartService {
@@ -70,31 +64,78 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     private final static String GEN_CHART_BY_AI = "genChartByAi_";
 
+
+    @Override
+    public RestResp<Boolean> deleteChart(DeleteReqDto deleteReqDto) {
+        if (deleteReqDto == null || deleteReqDto.getId() <= 0) {
+            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        }
+        long id = deleteReqDto.getId();
+        // 判断是否存在
+        Chart chart = this.getById(id);
+        ThrowUtils.throwIf(chart == null, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        boolean b = this.removeById(id);
+        return RestResp.success(b);
+    }
+
+    @Override
+    public RestResp<Page<Chart>> listMyChartByPage(ChartQueryReqDto chartQueryReqDto, HttpServletRequest request) {
+        if (chartQueryReqDto == null) {
+            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        chartQueryReqDto.setUserId(loginUser.getId());
+        long current = chartQueryReqDto.getCurrent();
+        long size = chartQueryReqDto.getPageSize();
+        // 限制爬虫
+        ThrowUtils.throwIf(size > 20, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        Page<Chart> chartPage = this.page(new Page<>(current, size),
+                getQueryWrapper(chartQueryReqDto));
+        return RestResp.success(chartPage);
+    }
+
+    @Override
+    public RestResp<Boolean> editChart(ChartEditReqDto chartEditReqDto) {
+        if (chartEditReqDto == null || chartEditReqDto.getId() <= 0) {
+            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        }
+        long id = chartEditReqDto.getId();
+        // 判断是否存在
+        Chart oldChart = this.getById(id);
+        ThrowUtils.throwIf(oldChart == null, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        Chart chart = new Chart();
+        BeanUtils.copyProperties(chartEditReqDto, chart);
+        boolean result = this.updateById(chart);
+        return RestResp.success(result);
+    }
+
     @Override
     public RestResp<BiRespDto> genChartByAi(MultipartFile multipartFile, GenChartByAiReqDto genChartByAiReqDto, HttpServletRequest request) {
         String name = genChartByAiReqDto.getName();
         String goal = genChartByAiReqDto.getGoal();
         String chartType = genChartByAiReqDto.getChartType();
+
         // 校验
-        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "分析目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
 
         //  校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();
+
         //  校验文件大小
         final long ONE_MB = 1024 * 1024L;
-        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件超过 1M");
+
         // 校验文件后缀 aaa.png
         String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("xlsx");
+        final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件后缀非法");
 
         User loginUser = userService.getLoginUser(request);
 
         // 每个用户一个限流器
         redisLimiterManager.doRateLimit(GEN_CHART_BY_AI + loginUser.getId());
-
 
 
         //  构造用户输入
@@ -142,56 +183,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     @Override
-    public RestResp<Boolean> deleteChart(DeleteReqDto deleteReqDto) {
-        if (deleteReqDto == null || deleteReqDto.getId() <= 0) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        long id = deleteReqDto.getId();
-        // 判断是否存在
-        Chart chart = this.getById(id);
-        ThrowUtils.throwIf(chart == null, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        boolean b = this.removeById(id);
-        return RestResp.success(b);
-    }
-
-    @Override
-    public RestResp<Page<Chart>> listMyChartByPage(ChartQueryReqDto chartQueryReqDto, HttpServletRequest request) {
-        if (chartQueryReqDto == null) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        User loginUser = userService.getLoginUser(request);
-        chartQueryReqDto.setUserId(loginUser.getId());
-        long current = chartQueryReqDto.getCurrent();
-        long size = chartQueryReqDto.getPageSize();
-        // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        Page<Chart> chartPage = this.page(new Page<>(current, size),
-                getQueryWrapper(chartQueryReqDto));
-        return RestResp.success(chartPage);
-    }
-
-    @Override
-    public RestResp<Boolean> editChart(ChartEditReqDto chartEditReqDto) {
-        if (chartEditReqDto == null || chartEditReqDto.getId() <= 0) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        long id = chartEditReqDto.getId();
-        // 判断是否存在
-        Chart oldChart = this.getById(id);
-        ThrowUtils.throwIf(oldChart == null, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        Chart chart = new Chart();
-        BeanUtils.copyProperties(chartEditReqDto, chart);
-        boolean result = this.updateById(chart);
-        return RestResp.success(result);
-    }
-
-    @Override
     public RestResp<BiRespDto> genChartByAiASync(MultipartFile multipartFile, GenChartByAiReqDto genChartByAiReqDto, HttpServletRequest request) {
         String name = genChartByAiReqDto.getName();
         String goal = genChartByAiReqDto.getGoal();
         String chartType = genChartByAiReqDto.getChartType();
         // 校验
-        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "分析目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
 
         //  校验文件
@@ -199,10 +196,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String originalFilename = multipartFile.getOriginalFilename();
         //  校验文件大小
         final long ONE_MB = 1024 * 1024L;
-        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件超过 1M");
         // 校验文件后缀 aaa.png
         String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("xlsx");
+        final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "文件后缀非法");
 
         User loginUser = userService.getLoginUser(request);
@@ -236,7 +233,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         boolean saveResult = this.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCodeEnum.SYSTEM_ERROR, "图表保存失败");
 
-        // todo 处理任务队列满了后，抛异常的情况
         CompletableFuture.runAsync(() -> {
             // 先修改图表任务状态为 “执行中”，等任务成功后，修改为 ”已完成“,保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
             Chart updateChart = new Chart();
@@ -279,8 +275,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String goal = genChartByAiReqDto.getGoal();
         String chartType = genChartByAiReqDto.getChartType();
         // 校验
-        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "目标为空");
-        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "名称过长");
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCodeEnum.USER_REQUEST_PARAM_ERROR, "分析目标为空");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
         // 校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();
@@ -294,23 +290,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
         User loginUser = userService.getLoginUser(request);
         // 限流判断，每个用户一个限流器
-        redisLimiterManager.doRateLimit(GEN_CHART_BY_AI+ loginUser.getId());
+        redisLimiterManager.doRateLimit(GEN_CHART_BY_AI + loginUser.getId());
 
-
-        // 构造用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求：").append("\n");
-
-        // 拼接分析目标
-        String userGoal = goal;
-        if (StringUtils.isNotBlank(chartType)) {
-            userGoal += "，请使用" + chartType;
-        }
-        userInput.append(userGoal).append("\n");
-        userInput.append("原始数据：").append("\n");
         // 压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append(csvData).append("\n");
 
         // 插入到数据库
         Chart chart = new Chart();
@@ -328,6 +311,19 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         biRespDto.setChartId(newChartId);
 
         return RestResp.success(biRespDto);
+    }
+
+
+    @Override
+    public RestResp<Chart> getChartById(long id) {
+        if (id <= 0) {
+            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
+        }
+        Chart chart = this.getById(id);
+        if (chart == null) {
+            throw new BusinessException(ErrorCodeEnum.NOT_FOUND_ERROR);
+        }
+        return RestResp.success(chart);
     }
 
     /**
@@ -359,6 +355,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                 sortField);
         return queryWrapper;
     }
+
 
     private void handleChartUpdateError(long chartId, String execMessage) {
         Chart updateChartResult = new Chart();

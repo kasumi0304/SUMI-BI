@@ -1,8 +1,6 @@
 package com.kasumi.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.kasumi.core.common.constant.ErrorCodeEnum;
-import com.kasumi.core.common.exception.BusinessException;
 import com.kasumi.core.common.resp.RestResp;
 import com.kasumi.dao.entity.Chart;
 import com.kasumi.dto.req.ChartEditReqDto;
@@ -18,10 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 
-/**
- * @Author kasumi
- * @Description: 图表接口
- */
+
 @RestController
 @RequestMapping("/chart")
 @Slf4j
@@ -42,21 +37,14 @@ public class ChartController {
     }
 
     /**
-     * 根据 id 获取
+     * 根据 id 获取图表信息接口
      *
      * @param id
      * @return
      */
     @GetMapping("/get")
     public RestResp<Chart> getChartById(long id) {
-        if (id <= 0) {
-            throw new BusinessException(ErrorCodeEnum.USER_REQUEST_PARAM_ERROR);
-        }
-        Chart chart = chartService.getById(id);
-        if (chart == null) {
-            throw new BusinessException(ErrorCodeEnum.NOT_FOUND_ERROR);
-        }
-        return RestResp.success(chart);
+        return chartService.getChartById(id);
     }
 
     /**

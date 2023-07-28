@@ -13,11 +13,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 
-/**
-* @author zhang
-* @description 针对表【chart(图表信息表)】的数据库操作Service
-* @createDate 2023-07-13 15:55:16
-*/
 public interface ChartService extends IService<Chart> {
 
     /**
@@ -68,4 +63,11 @@ public interface ChartService extends IService<Chart> {
      * @return
      */
     RestResp<BiRespDto> genChartByAiAsyncMq(MultipartFile multipartFile, GenChartByAiReqDto genChartByAiReqDto, HttpServletRequest request);
+
+    /**
+     * 根据 id 获取图表信息
+     * @param id
+     * @return
+     */
+    RestResp<Chart> getChartById(long id);
 }
