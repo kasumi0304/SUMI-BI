@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class OpenAiApi {
     public String doChat(String userInput) {
-        String url = "https://api.openai-proxy.com/v1/chat/completions";
+        String url = "https://openkey.cloud/v1/chat/completions";
 
         // 构建请求数据
         JSONArray messages = new JSONArray();
@@ -27,10 +27,6 @@ public class OpenAiApi {
                 {前端 Echarts V5 的 option 配置对象JSON格式，合理地将数据进行可视化，不要生成任何多余的内容，比如注释}
                 【【【【【
                 {明确的数据分析结论、越详细越好，不要生成多余的注释}
-                分析需求:
-                用户数量变化,柱状图"
-                原始数据:
-                日期,用户数"
                 %s
                 请根据上面的需求和原始数据，严格按照以下指定格式生成内容（此外不要输出任何多余的开头、结尾、注释）
                 【【【【【
@@ -46,7 +42,7 @@ public class OpenAiApi {
 
         String result = HttpRequest.post(url)
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer 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")
+                .header("Authorization", "Bearer sk-3IZNz4cOAFfYiJYCCiK4H3xqlqGJ5IhM4b0AhKilnG2T4p3F")
                 .body(json.toString())
                 .execute()
                 .body();
